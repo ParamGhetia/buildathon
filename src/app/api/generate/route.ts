@@ -8,7 +8,7 @@ Person A: ${userA.name}, ${userA.personality}, likes: ${userA.interests?.join(',
 Person B: ${userB.name}, ${userB.personality}, likes: ${userB.interests?.join(', ')||'various things'}
 Time: ${time}, Budget: ${budget}, Location: ${location}, Categories available: ${availableCategories.join(', ')}
 
-Give a singular activity in a short sentence like "play mini-golf at the nearby ranges". Be specific and fun. No preamble, just the sentence.`
+Give one activity in a very short sentence like "play mini-golf at the nearby ranges". Be specific and fun. No preamble, just the activity.`
 
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',

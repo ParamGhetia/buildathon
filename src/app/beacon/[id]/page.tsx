@@ -39,6 +39,7 @@ export default function BeaconPage() {
 
   return (
     <main className="page">
+      <div className="page-bg"><div className="blob1"/><div className="blob2"/></div>
       <div className="card">
         <div className="logo">Beacon</div>
         <div className="beacon-wrap">
@@ -46,7 +47,7 @@ export default function BeaconPage() {
         </div>
         <div className="step-label">Step 1 of 2</div>
         <h2>Who are you?</h2>
-        <p>Tell us a bit about yourself so we can find the perfect activity.</p>
+        <p>Every quest needs a hero. Tell us who you are.</p>
         <label>Your name</label>
         <input type="text" placeholder="e.g. Alex" value={name} onChange={e => setName(e.target.value)} />
         <label>16 personalities type</label>
@@ -59,7 +60,7 @@ export default function BeaconPage() {
           {INTERESTS.map(i => <button key={i} className={`tag ${interests.includes(i) ? 'selected' : ''}`} onClick={() => toggleInterest(i)}>{i}</button>)}
         </div>
         {error && <p style={{color:'var(--danger)',marginBottom:16}}>{error}</p>}
-        <button className="btn" onClick={handleJoin} disabled={loading}>{loading ? 'Joining...' : 'Light the beacon →'}</button>
+        <button className="btn" onClick={handleJoin} disabled={loading}>{loading ? 'Joining...' : 'Answer the call →'}</button>
       </div>
     </main>
   )
