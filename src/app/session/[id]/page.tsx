@@ -6,8 +6,7 @@ import { supabase } from '@/lib/supabase'
 const CATEGORIES = ['Food & Drinks','Outdoors','Arts & Culture','Sports & Active','Games & Fun','Entertainment','Random Surprise']
 const TIMES = ['30 min','1 hour','2 hours','Half day','Full day']
 const BUDGETS = ['Free','Under $10','$10–30','$30–60','$60+']
-const DELAY_SECONDS = 60
-type Stage = 'waiting'|'compatibility'|'prefs'|'generating'|'countdown'|'result'
+type Stage = 'waiting'|'compatibility'|'prefs'|'generating'|'pending'|'result'
 
 export default function SessionPage() {
   const params = useParams()
@@ -24,21 +23,12 @@ export default function SessionPage() {
   const [activity, setActivity] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
-  const [countdown, setCountdown] = useState(DELAY_SECONDS)
 
-  // Use refs to avoid stale closures in realtime callback
   const stageRef = useRef<Stage>('waiting')
   const activityRef = useRef('')
 
-  function setStageSync(s: Stage) {
-    stageRef.current = s
-    setStage(s)
-  }
-
-  function setActivitySync(a: string) {
-    activityRef.current = a
-    setActivity(a)
-  }
+  function setStageSync(s: Stage) { stageRef.current = s; setStage(s) }
+  function setActivitySync(a: string) { activityRef.current = a; setActivity(a) }
 
   function getCompatibility(a: string, b: string) {
     if (!a || !b) return 'good'
@@ -53,34 +43,17 @@ export default function SessionPage() {
   }
 
   useEffect(() => {
-    if (stage !== 'countdown') return
-    setCountdown(DELAY_SECONDS)
-    const interval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { clearInterval(interval); setStageSync('result'); return 0 }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [stage === 'countdown'])
-
-  useEffect(() => {
-    // Initial load
     supabase.from('sessions').select('*').eq('id', sessionId).single().then(({ data }) => {
       if (data) {
         setSession(data)
         if (data.status === 'matched' || data.status === 'done') handleMatched(data)
-        if (data.activity) { setActivitySync(data.activity); setStageSync('countdown') }
+        if (data.activity) { setActivitySync(data.activity); setStageSync('pending') }
       }
     })
 
-    // Realtime — use refs to check current state, not stale closure values
     const channel = supabase.channel(`session-${sessionId}`)
       .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'sessions',
-        filter: `id=eq.${sessionId}`
+        event: 'UPDATE', schema: 'public', table: 'sessions', filter: `id=eq.${sessionId}`
       }, ({ new: updated }) => {
         setSession(updated)
         if ((updated.status === 'matched' || updated.status === 'done') && stageRef.current === 'waiting') {
@@ -88,12 +61,10 @@ export default function SessionPage() {
         }
         if (updated.activity && !activityRef.current) {
           setActivitySync(updated.activity)
-          setStageSync('countdown')
+          setStageSync('pending')
         }
       })
-      .subscribe((status) => {
-        console.log('Realtime status:', status)
-      })
+      .subscribe((status) => console.log('Realtime:', status))
 
     return () => { supabase.removeChannel(channel) }
   }, [sessionId])
@@ -115,7 +86,7 @@ export default function SessionPage() {
       if (!res.ok) throw new Error(data.error)
       await supabase.from('sessions').update({ activity: data.activity, status: 'done' }).eq('id', sessionId)
       setActivitySync(data.activity)
-      setStageSync('countdown')
+      setStageSync('pending')
     } catch(e: any) { setError(e.message||'Failed to generate.'); setStageSync('prefs') }
     finally { setGenerating(false) }
   }
@@ -130,7 +101,6 @@ export default function SessionPage() {
   const userA = session.user_a
   const userB = session.user_b
   const me = userRole === 'a' ? userA : userB
-  const pct = ((DELAY_SECONDS - countdown) / DELAY_SECONDS) * 100
 
   return (
     <main className="page">
@@ -190,16 +160,14 @@ export default function SessionPage() {
           <div className="waiting-dots"><span/><span/><span/></div>
         </div>}
 
-        {stage === 'countdown' && <div style={{textAlign:'center',padding:'16px 0'}}>
+        {stage === 'pending' && <>
           <div className="beacon-wrap"><div className="beacon-ring"/><div className="beacon-ring"/><div className="beacon-dot"/></div>
-          <h2>Your quest approaches</h2>
-          <p>The beacon reveals your quest first. Watch it light up.</p>
-          <div style={{fontSize:48,fontWeight:300,color:'var(--accent)',margin:'16px 0',letterSpacing:'-0.03em'}}>{countdown}</div>
-          <div style={{background:'var(--surface2)',borderRadius:100,height:3,overflow:'hidden',marginBottom:8}}>
-            <div style={{height:'100%',background:'var(--accent)',width:`${pct}%`,transition:'width 1s linear',borderRadius:100}}/>
-          </div>
-          <p style={{fontSize:12,marginTop:8}}>Revealing in {countdown}s</p>
-        </div>}
+          <h2>Your quest is ready</h2>
+          <p>Press the button on the beacon to reveal it — or tap below to see it on your phone.</p>
+          <button className="btn" style={{marginTop:8}} onClick={() => setStageSync('result')}>
+            Reveal on my phone →
+          </button>
+        </>}
 
         {stage === 'result' && <>
           <div className="step-label">Your quest</div>
